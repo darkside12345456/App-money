@@ -97,25 +97,35 @@ object ReceiptParser {
      */
     private fun groupIntoRows(lines: List<OcrTextLine>): List<String> {
         if (lines.isEmpty()) return emptyList()
-        val sorted = lines.sortedBy { it.centerY }
+        // Ordena de cima para baixo; dentro de cada faixa, da esquerda para a direita.
+        val sorted = lines.sortedBy { it.top }
         val rows = mutableListOf<MutableList<OcrTextLine>>()
 
         for (line in sorted) {
             val row = rows.lastOrNull()
-            val height = line.height.coerceAtLeast(1)
-            if (row != null) {
-                val refY = row.map { it.centerY }.average()
-                if (kotlin.math.abs(line.centerY - refY) <= height * 0.6) {
-                    row.add(line)
-                    continue
-                }
+            if (row != null && verticallyAligned(row, line)) {
+                row.add(line)
+            } else {
+                rows.add(mutableListOf(line))
             }
-            rows.add(mutableListOf(line))
         }
 
         return rows.map { row ->
-            row.sortedBy { it.left }.joinToString("  ") { it.text }
+            row.sortedBy { it.left }.joinToString("  ") { it.text.trim() }
         }
+    }
+
+    /**
+     * Dois fragmentos pertencem à mesma linha visual se as suas caixas se
+     * sobrepõem verticalmente numa fração significativa — mais robusto do que
+     * comparar centros, porque a descrição e o preço podem ter alturas diferentes.
+     */
+    private fun verticallyAligned(row: List<OcrTextLine>, line: OcrTextLine): Boolean {
+        val top = row.minOf { it.top }
+        val bottom = row.maxOf { it.bottom }
+        val overlap = minOf(bottom, line.bottom) - maxOf(top, line.top)
+        val minHeight = minOf(bottom - top, line.height).coerceAtLeast(1)
+        return overlap > 0.5 * minHeight
     }
 
     // --- Comerciante -----------------------------------------------------------
@@ -128,7 +138,7 @@ object ReceiptParser {
             val letters = row.count { it.isLetter() }
             letters >= 3 &&
                 !PRICE.containsMatchIn(row) &&
-                NON_ITEM.none { lower.contains(it) } &&
+                !isNonItem(lower) &&
                 !lower.contains("contribuinte")
         }
         return candidates.maxByOrNull { it.count { c -> c.isLetter() } }
@@ -140,9 +150,6 @@ object ReceiptParser {
     // --- Total -----------------------------------------------------------------
 
     private fun detectTotal(rows: List<String>): Double? {
-        val totalRows = rows.filter { it.uppercase().contains("TOTAL") }
-        if (totalRows.isEmpty()) return null
-
         // Preferência: "TOTAL A PAGAR" > "TOTAL EUR"/"TOTAL €" > "TOTAL" simples.
         // Evitar "SUBTOTAL" e "TOTAL IVA" quando houver alternativas melhores.
         fun score(row: String): Int {
@@ -156,17 +163,37 @@ object ReceiptParser {
             return s
         }
 
-        val best = totalRows.maxByOrNull { score(it) } ?: return null
-        return lastPriceIn(best)
+        val totalIndices = rows.indices.filter { rows[it].uppercase().contains("TOTAL") }
+        if (totalIndices.isEmpty()) return null
+        val bestIndex = totalIndices.maxByOrNull { score(rows[it]) } ?: return null
+
+        // O valor pode estar na mesma linha ou na linha imediatamente a seguir
+        // (quando o rótulo "TOTAL" e o montante ficam em linhas separadas).
+        lastPriceIn(rows[bestIndex])?.let { return it }
+        if (bestIndex + 1 < rows.size) lastPriceIn(rows[bestIndex + 1])?.let { return it }
+        return null
     }
 
     // --- Itens -----------------------------------------------------------------
+
+    /**
+     * Verdadeiro se a linha for claramente cabeçalho/rodapé e não um item
+     * comprado. Palavras curtas exigem fronteiras de palavra para não apanharem
+     * produtos por acaso (ex.: "iva" dentro de "Activia").
+     */
+    private fun isNonItem(lowerRow: String): Boolean = NON_ITEM.any { kw ->
+        if (kw.any { !it.isLetter() && it != ' ' } || kw.contains(' ')) {
+            lowerRow.contains(kw)
+        } else {
+            Regex("""(?<![\p{L}])${Regex.escape(kw)}(?![\p{L}])""").containsMatchIn(lowerRow)
+        }
+    }
 
     private fun detectItems(rows: List<String>): List<ParsedItem> {
         val items = mutableListOf<ParsedItem>()
         for (row in rows) {
             val lower = row.lowercase()
-            if (NON_ITEM.any { lower.contains(it) }) continue
+            if (isNonItem(lower)) continue
 
             val price = lastPriceIn(row) ?: continue
             if (price <= 0.0) continue

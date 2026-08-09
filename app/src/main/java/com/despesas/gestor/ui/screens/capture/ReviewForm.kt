@@ -51,6 +51,7 @@ fun ReviewForm(
     viewModel: CaptureViewModel
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    var showRaw by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -172,6 +173,24 @@ fun ReviewForm(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        // Texto bruto lido pela câmara — ajuda a diagnosticar leituras falhadas.
+        val raw = data.rawText
+        if (!raw.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { showRaw = !showRaw }) {
+                Text(if (showRaw) "Ocultar texto lido pela câmara" else "Ver texto lido pela câmara")
+            }
+            if (showRaw) {
+                AppCard {
+                    Text(
+                        raw,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.height(20.dp))
         Button(

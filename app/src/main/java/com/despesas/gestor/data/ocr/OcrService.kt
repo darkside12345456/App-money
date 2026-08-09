@@ -47,15 +47,22 @@ class OcrService(private val context: Context) {
 
     /** Corre o OCR sobre a imagem em [uri] e devolve as linhas detetadas. */
     suspend fun recognize(uri: Uri): List<OcrTextLine> {
-        // Pré-processa a imagem (rotação EXIF + escala de cinzentos e contraste)
-        // para melhorar a fiabilidade do reconhecimento em faturas.
-        val bitmap = withContext(Dispatchers.IO) { preprocess(uri) }
-        val image = if (bitmap != null) {
-            InputImage.fromBitmap(bitmap, 0)
-        } else {
-            InputImage.fromFilePath(context, uri)
-        }
-        return recognize(image)
+        // Estratégia robusta: tenta primeiro a imagem pré-processada (rotação +
+        // realce). Se ler poucas linhas — o pré-processamento pode prejudicar
+        // talões térmicos de baixo contraste — tenta também a original e fica
+        // com a leitura mais rica. Assim nunca fica pior do que o original.
+        val processed = withContext(Dispatchers.IO) { preprocess(uri) }
+        val fromProcessed = if (processed != null) {
+            runCatching { recognizeImage(InputImage.fromBitmap(processed, 0)) }.getOrDefault(emptyList())
+        } else emptyList()
+
+        if (fromProcessed.size >= 8) return fromProcessed
+
+        val fromOriginal = runCatching {
+            recognizeImage(InputImage.fromFilePath(context, uri))
+        }.getOrDefault(emptyList())
+
+        return if (fromOriginal.size >= fromProcessed.size) fromOriginal else fromProcessed
     }
 
     /**
@@ -99,7 +106,7 @@ class OcrService(private val context: Context) {
         val output = Bitmap.createBitmap(rotated.width, rotated.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
         val grayscale = ColorMatrix().apply { setSaturation(0f) }
-        val contrast = 1.4f
+        val contrast = 1.15f
         val translate = (-.5f * contrast + .5f) * 255f
         val contrastMatrix = ColorMatrix(
             floatArrayOf(
@@ -115,7 +122,7 @@ class OcrService(private val context: Context) {
         output
     }.getOrNull()
 
-    private suspend fun recognize(image: InputImage): List<OcrTextLine> =
+    private suspend fun recognizeImage(image: InputImage): List<OcrTextLine> =
         suspendCancellableCoroutine { cont ->
             recognizer.process(image)
                 .addOnSuccessListener { result ->

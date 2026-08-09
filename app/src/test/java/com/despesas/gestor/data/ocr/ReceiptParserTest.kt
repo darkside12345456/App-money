@@ -100,6 +100,39 @@ class ReceiptParserTest {
     }
 
     @Test
+    fun parse_readsTotalOnSeparateLine() {
+        // "TOTAL A PAGAR" numa linha e o montante na linha imediatamente abaixo.
+        val lines = listOf(
+            line("Padaria", y = 0),
+            line("Cafe", y = 100, x = 0),
+            line("0,60", y = 100, x = 400),
+            line("Bolo", y = 130, x = 0),
+            line("0,95", y = 130, x = 400),
+            line("TOTAL A PAGAR", y = 200, x = 0),
+            line("1,60", y = 240, x = 400)
+        )
+        val result = ReceiptParser.parse(lines)
+        // 1,60 vem da linha seguinte ao rótulo (não da soma dos itens, que é 1,55).
+        assertEquals(1.60, result.total, 0.001)
+        assertEquals(2, result.items.size)
+    }
+
+    @Test
+    fun parse_keepsProductThatContainsKeywordSubstring() {
+        // "Activia" contém "iva" mas não deve ser filtrado como linha de IVA.
+        val lines = listOf(
+            line("Pingo Doce", y = 0),
+            line("Activia Natural", y = 100, x = 0),
+            line("1,99", y = 100, x = 400),
+            line("TOTAL", y = 160, x = 0),
+            line("1,99", y = 160, x = 400)
+        )
+        val result = ReceiptParser.parse(lines)
+        assertEquals(1, result.items.size)
+        assertEquals("Activia Natural", result.items[0].name)
+    }
+
+    @Test
     fun parse_fallsBackToItemsSumWhenNoTotal() {
         val lines = listOf(
             line("Cafe Central", y = 0),
