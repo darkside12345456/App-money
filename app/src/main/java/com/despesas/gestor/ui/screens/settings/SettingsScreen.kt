@@ -147,7 +147,7 @@ fun SettingsScreen(
             AppCard {
                 Column {
                     val budgetMap = budgets.associate { it.categoryId to it.amount }
-                    val cats = ExpenseCategory.entries.filter { it != ExpenseCategory.OUTROS }
+                    val cats = ExpenseCategory.entries
                     cats.forEachIndexed { index, cat ->
                         Row(
                             Modifier.fillMaxWidth().padding(vertical = 10.dp),

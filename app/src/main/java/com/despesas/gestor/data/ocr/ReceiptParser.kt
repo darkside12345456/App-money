@@ -273,12 +273,11 @@ object ReceiptParser {
         val full = (merchant + "\n" + rawText).lowercase()
         val merch = merchant.lowercase()
 
-        var best = ExpenseCategory.OUTROS
+        var best = ExpenseCategory.DEFAULT
         var bestScore = 0
         var bestSpecificity = 0
 
         for (category in ExpenseCategory.entries) {
-            if (category == ExpenseCategory.OUTROS) continue
             val matched = category.keywords.filter { matchesKeyword(full, it) }
             if (matched.isEmpty()) continue
 

@@ -55,7 +55,6 @@ fun ExpenseCategory.icon(): ImageVector = when (this) {
     ExpenseCategory.CASA -> Icons.Filled.Home
     ExpenseCategory.LAZER -> Icons.Filled.SportsEsports
     ExpenseCategory.CONTAS -> Icons.Filled.Receipt
-    ExpenseCategory.OUTROS -> Icons.Filled.Category
 }
 
 fun ExpenseCategory.color(): Color = when (this) {
@@ -67,7 +66,6 @@ fun ExpenseCategory.color(): Color = when (this) {
     ExpenseCategory.CASA -> Color(0xFFC49A3F)
     ExpenseCategory.LAZER -> Color(0xFF2FA3B5)
     ExpenseCategory.CONTAS -> Color(0xFF6E7B87)
-    ExpenseCategory.OUTROS -> Color(0xFF8A9691)
 }
 
 @Composable

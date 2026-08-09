@@ -130,15 +130,18 @@ enum class ExpenseCategory(
             "ageas", "allianz", "zurich", "generali", "mapfre", "renda",
             "condominio", "condomínio", "imi", "iuc"
         )
-    ),
-    OUTROS(
-        id = "outros",
-        displayName = "Outros",
-        keywords = emptyList()
     );
 
     companion object {
+        /**
+         * Categoria assumida por defeito quando a classificação automática não
+         * encontra sinais suficientes. Não existe categoria "Outros": cada
+         * despesa fica sempre numa categoria real, que o utilizador pode ajustar
+         * no ecrã de revisão.
+         */
+        val DEFAULT = SUPERMERCADO
+
         fun fromId(id: String?): ExpenseCategory =
-            entries.firstOrNull { it.id == id } ?: OUTROS
+            entries.firstOrNull { it.id == id } ?: DEFAULT
     }
 }
