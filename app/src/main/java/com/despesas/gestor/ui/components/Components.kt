@@ -3,6 +3,9 @@ package com.despesas.gestor.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,7 +105,7 @@ fun MonthBar(
     ) {
         androidx.compose.material3.IconButton(onClick = onPrevious) {
             Icon(
-                androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = "Mês anterior"
             )
         }
@@ -119,7 +122,7 @@ fun MonthBar(
         }
         androidx.compose.material3.IconButton(onClick = onNext) {
             Icon(
-                androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Mês seguinte"
             )
         }
