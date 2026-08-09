@@ -41,22 +41,23 @@ import com.despesas.gestor.util.Dates
 import com.despesas.gestor.util.Money
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CategoryDetailViewModel(
     repo: GestorRepository,
     val categoryId: String
 ) : ViewModel() {
-    private val monthKey = Dates.currentMonthKey()
 
     val receipts: StateFlow<List<ReceiptEntity>> =
-        repo.observeReceiptsForCategory(monthKey, categoryId)
+        repo.selectedMonth
+            .flatMapLatest { mk -> repo.observeReceiptsForCategory(mk, categoryId) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val total: StateFlow<Double> =
-        repo.observeReceiptsForCategory(monthKey, categoryId)
-            .map { list -> list.sumOf { it.total } }
+        receipts.map { list -> list.sumOf { it.total } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 }
 

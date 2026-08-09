@@ -13,14 +13,17 @@ object Routes {
     const val CATEGORIES = "categories"
     const val CATEGORY_DETAIL = "category/{categoryId}"
     const val RECEIPT_DETAIL = "receipt/{receiptId}"
+    const val RECEIPT_EDIT = "receipt/{receiptId}/edit"
     const val CAPTURE = "capture"
     const val FIXED = "fixed"
     const val BALANCE = "balance"
+    const val SETTINGS = "settings"
     const val SHOPPING = "shopping"
     const val SHOPPING_DETAIL = "shopping/{listId}"
 
     fun categoryDetail(categoryId: String) = "category/$categoryId"
     fun receiptDetail(receiptId: Long) = "receipt/$receiptId"
+    fun receiptEdit(receiptId: Long) = "receipt/$receiptId/edit"
     fun shoppingDetail(listId: Long) = "shopping/$listId"
 }
 

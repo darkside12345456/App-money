@@ -21,6 +21,20 @@ Todos os dados ficam **guardados apenas no telemóvel** (sem nuvem).
   categoria e comparação entre meses com gráficos simples.
 - **Listas de compras** — criar listas, adicionar itens, marcar como comprado
   e apagar.
+- **Navegação entre meses** — consulta e edita qualquer mês (não só o atual)
+  em todos os ecrãs, com um seletor `‹ mês ›` partilhado.
+- **Orçamentos por categoria** — define limites mensais e recebe um aviso
+  visual quando ultrapassas.
+- **Contas recorrentes** — marca uma conta como recorrente e copia-a para o
+  mês seguinte com um toque.
+- **Editar faturas** — corrige comerciante, categoria, data, total e itens de
+  uma fatura já guardada.
+- **Rendimento que transita** — o ordenado do último mês é assumido por
+  defeito nos meses seguintes.
+- **Cópia de segurança local** — exporta/importa todos os dados para um
+  ficheiro JSON que tu controlas (continua sem nuvem).
+- **Bloqueio biométrico** — protege a app com impressão digital / rosto.
+- **Lembrete de contas** — aviso diário quando há contas do mês por pagar.
 
 ## Arquitetura
 
@@ -32,9 +46,12 @@ Stack moderno e minimalista, 100% Kotlin:
 | Navegação | Navigation Compose |
 | Estado | ViewModel + Kotlin Flows |
 | Base de dados | Room (SQLite local) |
-| OCR | ML Kit Text Recognition (on-device) |
+| OCR | ML Kit Text Recognition (on-device) + pré-processamento de imagem |
 | Câmara | `ActivityResultContracts.TakePicture` + FileProvider |
 | Imagens | Coil |
+| Agendamento | WorkManager (lembrete diário) |
+| Segurança | AndroidX Biometric (bloqueio da app) |
+| Backup | Storage Access Framework + JSON (`org.json`) |
 
 ```
 com.despesas.gestor
@@ -52,8 +69,9 @@ com.despesas.gestor
 
 ### Como funciona o OCR item-a-item
 
-1. `OcrService` corre o ML Kit sobre a foto e devolve as linhas de texto com a
-   respetiva posição no ecrã.
+1. `OcrService` pré-processa a foto (rotação EXIF + escala de cinzentos e
+   contraste) e corre o ML Kit, devolvendo as linhas de texto com a respetiva
+   posição no ecrã.
 2. `ReceiptParser` (código puro, testável) transforma essas linhas numa fatura
    estruturada:
    - **Agrupa** fragmentos à mesma altura numa linha visual (descrição +
@@ -86,5 +104,6 @@ O parser de faturas tem testes unitários de JVM (não precisam de emulador):
 ./gradlew test
 ```
 
-Cobrem a extração de itens, deteção de total, classificação de categoria e a
-interpretação de preços.
+Cobrem a extração de itens (incluindo descontos ignorados e itens ao peso),
+deteção de total, classificação de categoria, interpretação de preços e o
+round-trip da cópia de segurança (JSON).

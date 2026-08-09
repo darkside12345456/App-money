@@ -43,6 +43,9 @@ object ReceiptParser {
 
     private val QUANTITY = Regex("""(?i)(\d+(?:[.,]\d+)?)\s*[xX*]\s*""")
 
+    // Peso de um item vendido a granel, ex.: "0,512 kg".
+    private val WEIGHT = Regex("""(?i)(\d+(?:[.,]\d+)?)\s*kg\b""")
+
     private val DATE_PATTERNS = listOf(
         Regex("""(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})""") to "dmy4",
         Regex("""(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\b""") to "dmy2",
@@ -170,8 +173,12 @@ object ReceiptParser {
 
             // Descrição = tudo antes do último preço.
             val match = PRICE.findAll(row).lastOrNull() ?: continue
-            var description = row.substring(0, match.range.first).trim()
-            description = description.trim('-', '*', ':', '.', ' ')
+
+            // Linha de desconto/estorno (preço negativo): não é um item comprado.
+            val beforePrice = row.substring(0, match.range.first).trimEnd()
+            if (beforePrice.endsWith("-")) continue
+
+            var description = beforePrice.trim().trim('-', '*', ':', '.', ' ')
 
             // Quantidade explícita ("2 x 0,99" / "3X 1,50").
             var quantity = 1.0
@@ -179,6 +186,12 @@ object ReceiptParser {
             if (qMatch != null) {
                 quantity = parseAmount(qMatch.groupValues[1]) ?: 1.0
                 description = description.substring(qMatch.range.last + 1).trim()
+            }
+
+            // Itens vendidos ao peso ("Bananas 0,512 kg").
+            val wMatch = WEIGHT.find(description)
+            if (wMatch != null && quantity == 1.0) {
+                quantity = parseAmount(wMatch.groupValues[1]) ?: 1.0
             }
 
             // Uma descrição válida tem de ter texto real.

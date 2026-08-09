@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,9 +32,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,9 +53,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.despesas.gestor.ui.components.AppCard
 import com.despesas.gestor.ui.components.EmptyState
+import com.despesas.gestor.ui.components.MonthBar
 import com.despesas.gestor.ui.repositoryViewModelFactory
 import com.despesas.gestor.util.Dates
 import com.despesas.gestor.util.Money
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,8 +68,11 @@ fun FixedExpensesScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAdd = true }) {
                 Icon(Icons.Filled.Add, contentDescription = "Adicionar conta")
@@ -73,12 +82,40 @@ fun FixedExpensesScreen(
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(16.dp))
             Text("Despesas fixas", style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "${state.monthLabel} · ${Money.format(state.total)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Spacer(Modifier.height(4.dp))
+            MonthBar(
+                monthLabel = state.monthLabel,
+                onPrevious = viewModel::previousMonth,
+                onNext = viewModel::nextMonth,
+                isCurrentMonth = state.isCurrentMonth,
+                onCurrent = viewModel::currentMonth
             )
-            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Total: ${Money.format(state.total)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = {
+                    viewModel.copyRecurring { created ->
+                        scope.launch {
+                            snackbar.showSnackbar(
+                                if (created > 0) "$created conta(s) recorrente(s) copiada(s)"
+                                else "Sem contas recorrentes para copiar"
+                            )
+                        }
+                    }
+                }) {
+                    Icon(Icons.Outlined.Repeat, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Copiar recorrentes")
+                }
+            }
+            Spacer(Modifier.height(12.dp))
 
             if (state.expenses.isEmpty()) {
                 EmptyState(
@@ -110,7 +147,8 @@ fun FixedExpensesScreen(
                                             TextDecoration.LineThrough else null
                                     )
                                     Text(
-                                        Dates.formatDate(expense.dateMillis),
+                                        Dates.formatDate(expense.dateMillis) +
+                                            if (expense.recurring) "  ·  🔁 recorrente" else "",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -138,8 +176,8 @@ fun FixedExpensesScreen(
     if (showAdd) {
         AddFixedExpenseDialog(
             onDismiss = { showAdd = false },
-            onConfirm = { name, provider, amount, date, paid ->
-                viewModel.add(name, provider, amount, date, paid)
+            onConfirm = { name, provider, amount, date, paid, recurring ->
+                viewModel.add(name, provider, amount, date, paid, recurring)
                 showAdd = false
             }
         )
@@ -150,12 +188,13 @@ fun FixedExpensesScreen(
 @Composable
 private fun AddFixedExpenseDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, String?, Double, Long, Boolean) -> Unit
+    onConfirm: (String, String?, Double, Long, Boolean, Boolean) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var provider by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var paid by remember { mutableStateOf(false) }
+    var recurring by remember { mutableStateOf(true) }
     val dateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val presets = listOf("Luz", "Água", "Gás", "Internet", "Telemóvel", "Renda")
@@ -199,11 +238,18 @@ private fun AddFixedExpenseDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
-                FilterChip(
-                    selected = paid,
-                    onClick = { paid = !paid },
-                    label = { Text("Já paga") }
-                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = paid,
+                        onClick = { paid = !paid },
+                        label = { Text("Já paga") }
+                    )
+                    FilterChip(
+                        selected = recurring,
+                        onClick = { recurring = !recurring },
+                        label = { Text("Recorrente") }
+                    )
+                }
             }
         },
         confirmButton = {
@@ -211,7 +257,7 @@ private fun AddFixedExpenseDialog(
                 onClick = {
                     val value = amount.replace('.', ',').replace(',', '.').toDoubleOrNull() ?: 0.0
                     if (name.isNotBlank() && value > 0) {
-                        onConfirm(name.trim(), provider.trim().ifBlank { null }, value, dateMillis, paid)
+                        onConfirm(name.trim(), provider.trim().ifBlank { null }, value, dateMillis, paid, recurring)
                     }
                 }
             ) { Text("Guardar") }

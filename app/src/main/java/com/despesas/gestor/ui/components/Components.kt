@@ -2,6 +2,7 @@ package com.despesas.gestor.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,6 +82,47 @@ fun CategoryAvatar(category: ExpenseCategory, size: Int = 44) {
             tint = category.color(),
             modifier = Modifier.size((size * 0.5).dp)
         )
+    }
+}
+
+/** Barra de navegação entre meses: `‹  Agosto de 2026  ›`. */
+@Composable
+fun MonthBar(
+    monthLabel: String,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier,
+    isCurrentMonth: Boolean = true,
+    onCurrent: (() -> Unit)? = null
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        androidx.compose.material3.IconButton(onClick = onPrevious) {
+            Icon(
+                androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = "Mês anterior"
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(monthLabel, style = MaterialTheme.typography.titleMedium)
+            if (!isCurrentMonth && onCurrent != null) {
+                Text(
+                    "Voltar ao mês atual",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onCurrent() }
+                )
+            }
+        }
+        androidx.compose.material3.IconButton(onClick = onNext) {
+            Icon(
+                androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Mês seguinte"
+            )
+        }
     }
 }
 

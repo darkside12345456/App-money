@@ -18,9 +18,11 @@ import com.despesas.gestor.ui.screens.balance.BalanceScreen
 import com.despesas.gestor.ui.screens.capture.CaptureScreen
 import com.despesas.gestor.ui.screens.categories.CategoriesScreen
 import com.despesas.gestor.ui.screens.categories.CategoryDetailScreen
+import com.despesas.gestor.ui.screens.categories.EditReceiptScreen
 import com.despesas.gestor.ui.screens.categories.ReceiptDetailScreen
 import com.despesas.gestor.ui.screens.fixed.FixedExpensesScreen
 import com.despesas.gestor.ui.screens.home.HomeScreen
+import com.despesas.gestor.ui.screens.settings.SettingsScreen
 import com.despesas.gestor.ui.screens.shopping.ShoppingDetailScreen
 import com.despesas.gestor.ui.screens.shopping.ShoppingScreen
 
@@ -71,7 +73,8 @@ private fun NavGraphBuilder.appGraph(
         HomeScreen(
             onCapture = { navController.navigate(Routes.CAPTURE) },
             onOpenBalance = { navController.navigate(Routes.BALANCE) },
-            onOpenCategory = { navController.navigate(Routes.categoryDetail(it)) }
+            onOpenCategory = { navController.navigate(Routes.categoryDetail(it)) },
+            onOpenSettings = { navController.navigate(Routes.SETTINGS) }
         )
     }
 
@@ -100,8 +103,24 @@ private fun NavGraphBuilder.appGraph(
         val receiptId = entry.arguments?.getLong("receiptId") ?: 0L
         ReceiptDetailScreen(
             receiptId = receiptId,
-            onBack = { navController.popBackStack() }
+            onBack = { navController.popBackStack() },
+            onEdit = { navController.navigate(Routes.receiptEdit(it)) }
         )
+    }
+
+    composable(
+        route = Routes.RECEIPT_EDIT,
+        arguments = listOf(navArgument("receiptId") { type = NavType.LongType })
+    ) { entry ->
+        val receiptId = entry.arguments?.getLong("receiptId") ?: 0L
+        EditReceiptScreen(
+            receiptId = receiptId,
+            onDone = { navController.popBackStack() }
+        )
+    }
+
+    composable(Routes.SETTINGS) {
+        SettingsScreen(onBack = { navController.popBackStack() })
     }
 
     composable(Routes.CAPTURE) {

@@ -9,6 +9,7 @@ import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.Transaction
 import androidx.room.Update
+import com.despesas.gestor.data.local.entity.BudgetEntity
 import com.despesas.gestor.data.local.entity.FixedExpenseEntity
 import com.despesas.gestor.data.local.entity.IncomeEntity
 import com.despesas.gestor.data.local.entity.ReceiptEntity
@@ -54,8 +55,19 @@ interface IncomeDao {
     @Query("SELECT * FROM income WHERE monthKey = :monthKey")
     suspend fun get(monthKey: String): IncomeEntity?
 
+    /** O rendimento definido para o mês, ou o mais recente antes dele (carry-over). */
+    @Query("SELECT * FROM income WHERE monthKey <= :monthKey ORDER BY monthKey DESC LIMIT 1")
+    fun observeEffective(monthKey: String): Flow<IncomeEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(income: IncomeEntity)
+
+    // Backup
+    @Query("SELECT * FROM income")
+    suspend fun getAll(): List<IncomeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<IncomeEntity>)
 }
 
 @Dao
@@ -78,6 +90,24 @@ interface ReceiptDao {
 
     @Update
     suspend fun updateReceipt(receipt: ReceiptEntity)
+
+    @Query("DELETE FROM receipt_items WHERE receiptId = :receiptId")
+    suspend fun deleteItemsForReceipt(receiptId: Long)
+
+    /** Atualiza a fatura e substitui integralmente os seus itens. */
+    @Transaction
+    suspend fun updateReceiptWithItems(
+        receipt: ReceiptEntity,
+        items: List<ReceiptItemEntity>
+    ) {
+        updateReceipt(receipt)
+        deleteItemsForReceipt(receipt.id)
+        insertItems(items.map { it.copy(id = 0, receiptId = receipt.id) })
+    }
+
+    @Transaction
+    @Query("SELECT * FROM receipts WHERE id = :id")
+    suspend fun getReceiptWithItems(id: Long): ReceiptWithItems?
 
     @Delete
     suspend fun deleteReceipt(receipt: ReceiptEntity)
@@ -118,6 +148,19 @@ interface ReceiptDao {
 
     @Query("SELECT * FROM receipts WHERE monthKey = :monthKey ORDER BY dateMillis DESC")
     fun observeAllReceipts(monthKey: String): Flow<List<ReceiptEntity>>
+
+    // Backup
+    @Query("SELECT * FROM receipts")
+    suspend fun getAllReceipts(): List<ReceiptEntity>
+
+    @Query("SELECT * FROM receipt_items")
+    suspend fun getAllItems(): List<ReceiptItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReceiptsRestore(receipts: List<ReceiptEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItemsRestore(items: List<ReceiptItemEntity>)
 }
 
 @Dao
@@ -147,6 +190,47 @@ interface FixedExpenseDao {
         """
     )
     fun observeRecentMonthTotals(limit: Int): Flow<List<MonthTotal>>
+
+    @Query("SELECT COUNT(*) FROM fixed_expenses WHERE monthKey = :monthKey")
+    suspend fun countForMonth(monthKey: String): Int
+
+    /** Contas recorrentes do mês mais recente anterior a [monthKey]. */
+    @Query(
+        """
+        SELECT * FROM fixed_expenses
+        WHERE recurring = 1
+          AND monthKey = (
+            SELECT MAX(monthKey) FROM fixed_expenses
+            WHERE recurring = 1 AND monthKey < :monthKey
+          )
+        """
+    )
+    suspend fun getRecurringBefore(monthKey: String): List<FixedExpenseEntity>
+
+    // Backup
+    @Query("SELECT * FROM fixed_expenses")
+    suspend fun getAll(): List<FixedExpenseEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<FixedExpenseEntity>)
+}
+
+@Dao
+interface BudgetDao {
+    @Query("SELECT * FROM budgets")
+    fun observeAll(): Flow<List<BudgetEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(budget: BudgetEntity)
+
+    @Query("DELETE FROM budgets WHERE categoryId = :categoryId")
+    suspend fun delete(categoryId: String)
+
+    @Query("SELECT * FROM budgets")
+    suspend fun getAll(): List<BudgetEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<BudgetEntity>)
 }
 
 @Dao
@@ -194,4 +278,17 @@ interface ShoppingDao {
 
     @Query("SELECT COUNT(*) FROM shopping_items WHERE listId = :listId AND checked = 1")
     fun observeCheckedCount(listId: Long): Flow<Int>
+
+    // Backup
+    @Query("SELECT * FROM shopping_lists")
+    suspend fun getAllLists(): List<ShoppingListEntity>
+
+    @Query("SELECT * FROM shopping_items")
+    suspend fun getAllItems(): List<ShoppingItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertListsRestore(lists: List<ShoppingListEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItemsRestore(items: List<ShoppingItemEntity>)
 }

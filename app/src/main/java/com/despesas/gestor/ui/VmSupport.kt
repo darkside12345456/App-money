@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import com.despesas.gestor.AppContainer
 import com.despesas.gestor.GestorApp
 import com.despesas.gestor.data.repository.GestorRepository
 
@@ -19,6 +20,16 @@ inline fun <reified VM : ViewModel> repositoryViewModelFactory(
     initializer {
         val app = this[APPLICATION_KEY] as GestorApp
         create(app.container.repository)
+    }
+}
+
+/** Fábrica que fornece o contentor de dependências completo (repositório + prefs). */
+inline fun <reified VM : ViewModel> containerViewModelFactory(
+    crossinline create: (AppContainer) -> VM
+): ViewModelProvider.Factory = viewModelFactory {
+    initializer {
+        val app = this[APPLICATION_KEY] as GestorApp
+        create(app.container)
     }
 }
 

@@ -67,6 +67,39 @@ class ReceiptParserTest {
     }
 
     @Test
+    fun parse_ignoresDiscountLines() {
+        val lines = listOf(
+            line("Continente", y = 0),
+            line("Iogurtes", y = 100, x = 0),
+            line("2,49", y = 100, x = 400),
+            line("Promocao", y = 130, x = 0),
+            line("-0,50", y = 130, x = 400),
+            line("TOTAL A PAGAR", y = 200, x = 0),
+            line("1,99", y = 200, x = 400)
+        )
+        val result = ReceiptParser.parse(lines)
+        // A linha de desconto (-0,50) não deve virar item.
+        assertEquals(1, result.items.size)
+        assertEquals("Iogurtes", result.items[0].name)
+        assertEquals(1.99, result.total, 0.001)
+    }
+
+    @Test
+    fun parse_readsWeightAsQuantity() {
+        val lines = listOf(
+            line("Frutaria", y = 0),
+            line("Bananas 0,512 kg", y = 100, x = 0),
+            line("1,02", y = 100, x = 400),
+            line("TOTAL", y = 160, x = 0),
+            line("1,02", y = 160, x = 400)
+        )
+        val result = ReceiptParser.parse(lines)
+        assertEquals(1, result.items.size)
+        assertEquals(1.02, result.items[0].price, 0.001)
+        assertEquals(0.512, result.items[0].quantity, 0.0001)
+    }
+
+    @Test
     fun parse_fallsBackToItemsSumWhenNoTotal() {
         val lines = listOf(
             line("Cafe Central", y = 0),

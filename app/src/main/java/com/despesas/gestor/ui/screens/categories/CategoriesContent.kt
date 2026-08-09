@@ -29,6 +29,7 @@ import com.despesas.gestor.domain.model.ExpenseCategory
 import com.despesas.gestor.ui.components.AppCard
 import com.despesas.gestor.ui.components.CategoryAvatar
 import com.despesas.gestor.ui.components.EmptyState
+import com.despesas.gestor.ui.components.MonthBar
 import com.despesas.gestor.ui.repositoryViewModelFactory
 import com.despesas.gestor.util.Money
 
@@ -44,8 +45,16 @@ fun CategoriesScreen(
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(16.dp))
         Text("Categorias", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(4.dp))
+        MonthBar(
+            monthLabel = state.monthLabel,
+            onPrevious = viewModel::previousMonth,
+            onNext = viewModel::nextMonth,
+            isCurrentMonth = state.isCurrentMonth,
+            onCurrent = viewModel::currentMonth
+        )
         Text(
-            "${state.monthLabel} · ${Money.format(state.total)}",
+            "Total: ${Money.format(state.total)}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

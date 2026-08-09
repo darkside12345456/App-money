@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -77,7 +78,8 @@ class ReceiptDetailViewModel(
 @Composable
 fun ReceiptDetailScreen(
     receiptId: Long,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onEdit: (Long) -> Unit
 ) {
     val viewModel: ReceiptDetailViewModel = viewModel(
         key = "receipt_$receiptId",
@@ -96,6 +98,9 @@ fun ReceiptDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onEdit(receiptId) }) {
+                        Icon(Icons.Outlined.Edit, contentDescription = "Editar")
+                    }
                     IconButton(onClick = { confirmDelete = true }) {
                         Icon(Icons.Outlined.Delete, contentDescription = "Apagar")
                     }

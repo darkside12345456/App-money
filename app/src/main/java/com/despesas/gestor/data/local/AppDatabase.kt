@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.despesas.gestor.data.local.dao.BudgetDao
 import com.despesas.gestor.data.local.dao.FixedExpenseDao
 import com.despesas.gestor.data.local.dao.IncomeDao
 import com.despesas.gestor.data.local.dao.ReceiptDao
 import com.despesas.gestor.data.local.dao.ShoppingDao
+import com.despesas.gestor.data.local.entity.BudgetEntity
 import com.despesas.gestor.data.local.entity.FixedExpenseEntity
 import com.despesas.gestor.data.local.entity.IncomeEntity
 import com.despesas.gestor.data.local.entity.ReceiptEntity
@@ -22,9 +24,10 @@ import com.despesas.gestor.data.local.entity.ShoppingListEntity
         ReceiptItemEntity::class,
         FixedExpenseEntity::class,
         ShoppingListEntity::class,
-        ShoppingItemEntity::class
+        ShoppingItemEntity::class,
+        BudgetEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun receiptDao(): ReceiptDao
     abstract fun fixedExpenseDao(): FixedExpenseDao
     abstract fun shoppingDao(): ShoppingDao
+    abstract fun budgetDao(): BudgetDao
 
     companion object {
         @Volatile
@@ -43,7 +47,11 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "gestor.db"
-                ).build().also { INSTANCE = it }
+                )
+                    // Pré-lançamento: sem dados reais a preservar, evita
+                    // escrever migrações manuais enquanto o esquema estabiliza.
+                    .fallbackToDestructiveMigration()
+                    .build().also { INSTANCE = it }
             }
     }
 }

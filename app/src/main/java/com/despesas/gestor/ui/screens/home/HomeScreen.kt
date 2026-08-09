@@ -19,8 +19,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -42,6 +44,7 @@ import com.despesas.gestor.domain.model.ExpenseCategory
 import com.despesas.gestor.ui.components.AppCard
 import com.despesas.gestor.ui.components.CategoryAvatar
 import com.despesas.gestor.ui.components.LegendDot
+import com.despesas.gestor.ui.components.MonthBar
 import com.despesas.gestor.ui.components.Segment
 import com.despesas.gestor.ui.components.StackedCategoryBar
 import com.despesas.gestor.ui.components.ThinProgressBar
@@ -55,6 +58,7 @@ fun HomeScreen(
     onCapture: () -> Unit,
     onOpenBalance: () -> Unit,
     onOpenCategory: (String) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = viewModel(
         factory = repositoryViewModelFactory { HomeViewModel(it) }
     )
@@ -68,17 +72,25 @@ fun HomeScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(Modifier.height(16.dp))
-        Text(
-            state.monthLabel,
-            style = MaterialTheme.typography.headlineMedium
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Despesas", style = MaterialTheme.typography.headlineMedium)
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Outlined.Settings, contentDescription = "Definições")
+            }
+        }
+        MonthBar(
+            monthLabel = state.monthLabel,
+            onPrevious = viewModel::previousMonth,
+            onNext = viewModel::nextMonth,
+            isCurrentMonth = state.isCurrentMonth,
+            onCurrent = viewModel::currentMonth
         )
-        Text(
-            "Balanço do mês",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
         BalanceCard(state, onEditIncome = { editingIncome = true })
 
@@ -250,11 +262,24 @@ private fun CategoryBreakdown(state: HomeUiState, onOpenCategory: (String) -> Un
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(cat.displayName, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "${ct.receiptCount} fatura(s)",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        val budget = state.budgets[ct.categoryId]
+                        if (budget != null && budget > 0) {
+                            val pct = (ct.total / budget * 100).toInt()
+                            val over = ct.total > budget
+                            Text(
+                                if (over) "⚠ $pct% do orçamento (${Money.format(budget)})"
+                                else "$pct% do orçamento (${Money.format(budget)})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (over) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Text(
+                                "${ct.receiptCount} fatura(s)",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     Text(Money.format(ct.total), style = MaterialTheme.typography.titleMedium)
                 }

@@ -34,6 +34,7 @@ import com.despesas.gestor.domain.model.ExpenseCategory
 import com.despesas.gestor.ui.components.AppCard
 import com.despesas.gestor.ui.components.BarValue
 import com.despesas.gestor.ui.components.LegendDot
+import com.despesas.gestor.ui.components.MonthBar
 import com.despesas.gestor.ui.components.MonthlyBarChart
 import com.despesas.gestor.ui.components.Segment
 import com.despesas.gestor.ui.components.StackedCategoryBar
@@ -76,7 +77,13 @@ fun BalanceScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(8.dp))
-            Text(state.monthLabel, style = MaterialTheme.typography.titleLarge)
+            MonthBar(
+                monthLabel = state.monthLabel,
+                onPrevious = viewModel::previousMonth,
+                onNext = viewModel::nextMonth,
+                isCurrentMonth = state.isCurrentMonth,
+                onCurrent = viewModel::currentMonth
+            )
             Spacer(Modifier.height(12.dp))
 
             // Resumo do mês

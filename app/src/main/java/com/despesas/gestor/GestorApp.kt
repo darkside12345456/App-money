@@ -4,6 +4,7 @@ import android.app.Application
 import com.despesas.gestor.data.local.AppDatabase
 import com.despesas.gestor.data.ocr.OcrService
 import com.despesas.gestor.data.repository.GestorRepository
+import com.despesas.gestor.util.AppPrefs
 
 /**
  * Application com um contentor de dependências manual e simples.
@@ -24,4 +25,5 @@ class AppContainer(app: GestorApp) {
     private val database = AppDatabase.get(app)
     private val ocrService = OcrService(app)
     val repository = GestorRepository(app, database, ocrService)
+    val prefs = AppPrefs(app)
 }

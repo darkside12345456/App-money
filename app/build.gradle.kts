@@ -69,13 +69,19 @@ dependencies {
 
     // ML Kit OCR (on-device)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.androidx.exifinterface)
 
     // Image loading
     implementation(libs.coil.compose)
 
+    // Agendamento de lembretes + bloqueio biométrico
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.biometric)
+
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
+    testImplementation(libs.json.jvm)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -67,7 +67,16 @@ data class FixedExpenseEntity(
     val amount: Double,
     val dateMillis: Long,
     val monthKey: String,
-    val paid: Boolean = false
+    val paid: Boolean = false,
+    /** Se verdadeiro, pode ser copiada automaticamente para o mês seguinte. */
+    val recurring: Boolean = false
+)
+
+/** Orçamento (limite) definido pelo utilizador para uma categoria. */
+@Entity(tableName = "budgets")
+data class BudgetEntity(
+    @PrimaryKey val categoryId: String,
+    val amount: Double
 )
 
 /** Uma lista de compras. */
