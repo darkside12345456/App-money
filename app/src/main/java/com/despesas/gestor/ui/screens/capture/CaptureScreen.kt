@@ -166,6 +166,16 @@ private fun CaptureIntro(onCamera: () -> Unit, onGallery: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Para melhores resultados:\n" +
+                "• Pousa o talão numa superfície plana\n" +
+                "• Boa luz, sem sombras nem reflexos\n" +
+                "• Fotografa de cima, direito (sem inclinar)\n" +
+                "• Enquadra só o talão, o mais próximo possível",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(28.dp))
         Button(
             onClick = onCamera,

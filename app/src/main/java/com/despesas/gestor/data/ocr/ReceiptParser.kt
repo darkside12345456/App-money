@@ -46,6 +46,15 @@ object ReceiptParser {
     // Peso de um item vendido a granel, ex.: "0,512 kg".
     private val WEIGHT = Regex("""(?i)(\d+(?:[.,]\d+)?)\s*kg\b""")
 
+    // Percentagem de IVA, ex.: "13%", "23,00%".
+    private val PERCENT = Regex("""\d+(?:[.,]\d+)?\s*%""")
+
+    // Quantidade no início da linha, ex.: "1 " em "1 Batata Média".
+    private val LEADING_QTY = Regex("""^(\d{1,2})\s+""")
+
+    // "Ruído" no fim da descrição: preço unitário e taxa de IVA, ex.: "8.47 13%".
+    private val TRAILING_NOISE = Regex("""[\s]*(?:\d+(?:[.,]\d+)?\s*%|\d{1,3}[.,]\d{2})$""")
+
     private val DATE_PATTERNS = listOf(
         Regex("""(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})""") to "dmy4",
         Regex("""(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\b""") to "dmy2",
@@ -150,16 +159,23 @@ object ReceiptParser {
     // --- Total -----------------------------------------------------------------
 
     private fun detectTotal(rows: List<String>): Double? {
-        // Preferência: "TOTAL A PAGAR" > "TOTAL EUR"/"TOTAL €" > "TOTAL" simples.
-        // Evitar "SUBTOTAL" e "TOTAL IVA" quando houver alternativas melhores.
+        // O total a pagar costuma ser "TOTAL A PAGAR" / "TOTAL LEVAR" / "TOTAL
+        // (incl IVA)". As linhas de repartição do IVA ("Total IVA 13,00%") e o
+        // subtotal/líquido NÃO são o total — reconhecem-se por trazerem uma
+        // percentagem ou as palavras "líquido"/"subtotal".
         fun score(row: String): Int {
             val u = row.uppercase()
             var s = 0
             if (u.contains("A PAGAR")) s += 100
-            if (u.contains("TOTAL EUR") || u.contains("TOTAL €") || u.contains("TOTAL A")) s += 20
+            if (u.contains("TOTAL LEVAR") || u.contains("INCL IVA") ||
+                u.contains("INCL. IVA") || u.contains("A PAGAR")
+            ) s += 50
+            if (u.contains("TOTAL EUR") || u.contains("TOTAL €")) s += 30
+            if (u.contains("TOTAL")) s += 10
+            // Linhas de imposto/subtotal: têm percentagem ou "líquido".
+            if (PERCENT.containsMatchIn(u)) s -= 80
+            if (u.contains("LIQUIDO") || u.contains("LÍQUIDO")) s -= 40
             if (u.contains("SUBTOTAL") || u.contains("SUB-TOTAL")) s -= 50
-            if (u.contains("IVA")) s -= 60
-            if (u.contains("SEM IVA") || u.contains("S/IVA")) s -= 30
             return s
         }
 
@@ -196,7 +212,8 @@ object ReceiptParser {
             if (isNonItem(lower)) continue
 
             val price = lastPriceIn(row) ?: continue
-            if (price <= 0.0) continue
+            // Aceita 0,00 (ex.: molhos/extras grátis), mas rejeita negativos.
+            if (price < 0.0) continue
 
             // Descrição = tudo antes do último preço.
             val match = PRICE.findAll(row).lastOrNull() ?: continue
@@ -207,12 +224,26 @@ object ReceiptParser {
 
             var description = beforePrice.trim().trim('-', '*', ':', '.', ' ')
 
-            // Quantidade explícita ("2 x 0,99" / "3X 1,50").
+            // Remove o "ruído" no fim: preço unitário + taxa de IVA
+            // (ex.: "1 M Philly Doubl 8.47 13%" -> "1 M Philly Doubl").
+            var previous: String
+            do {
+                previous = description
+                description = TRAILING_NOISE.replace(description, "").trim()
+            } while (description != previous)
+
+            // Quantidade: "2 x 0,99" ou número no início da linha ("1 Batata").
             var quantity = 1.0
             val qMatch = QUANTITY.find(description)
             if (qMatch != null) {
                 quantity = parseAmount(qMatch.groupValues[1]) ?: 1.0
                 description = description.substring(qMatch.range.last + 1).trim()
+            } else {
+                val lead = LEADING_QTY.find(description)
+                if (lead != null) {
+                    quantity = lead.groupValues[1].toDoubleOrNull() ?: 1.0
+                    description = description.substring(lead.range.last + 1).trim()
+                }
             }
 
             // Itens vendidos ao peso ("Bananas 0,512 kg").

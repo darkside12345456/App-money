@@ -133,6 +133,33 @@ class ReceiptParserTest {
     }
 
     @Test
+    fun parse_cleansRestaurantStyleLinesAndReadsGrandTotal() {
+        // Formato tipo McDonald's: "QTD DESC  UNID IVA%  TOTAL", com o total a
+        // pagar em "TOTAL LEVAR (incl IVA)" e linhas de IVA a seguir.
+        val lines = listOf(
+            line("McDonald's Evora", y = 0),
+            line("1 M Philly Doubl 8.47 13% 8.47", y = 100),
+            line("1 Coca-Cola Mn 1.28 23% 1.28", y = 130),
+            line("1 Molho Agrido 0.90 13% 0.00", y = 160),
+            line("Total Liquido: 25.12", y = 200),
+            line("Total IVA Incluido 13.00% 3.00", y = 230),
+            line("TOTAL LEVAR Total (incl IVA)", y = 260),
+            line("28.60", y = 290, x = 400)
+        )
+        val result = ReceiptParser.parse(lines)
+
+        assertEquals(ExpenseCategory.RESTAURACAO, result.category)
+        // O total a pagar (28,60), não o líquido (25,12) nem o IVA.
+        assertEquals(28.60, result.total, 0.001)
+        // Nome sem o preço unitário nem a taxa de IVA, e sem a quantidade inicial.
+        assertEquals("M Philly Doubl", result.items[0].name)
+        assertEquals(8.47, result.items[0].price, 0.001)
+        assertEquals("Coca-Cola Mn", result.items[1].name)
+        // Extra grátis (0,00) também é incluído.
+        assertTrue(result.items.any { it.name.contains("Molho") && it.price == 0.0 })
+    }
+
+    @Test
     fun parse_fallsBackToItemsSumWhenNoTotal() {
         val lines = listOf(
             line("Cafe Central", y = 0),
