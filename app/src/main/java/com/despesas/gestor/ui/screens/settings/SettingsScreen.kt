@@ -1,5 +1,6 @@
 package com.despesas.gestor.ui.screens.settings
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +50,7 @@ import com.despesas.gestor.domain.model.ExpenseCategory
 import com.despesas.gestor.ui.components.AppCard
 import com.despesas.gestor.ui.components.CategoryAvatar
 import com.despesas.gestor.ui.containerViewModelFactory
+import com.despesas.gestor.util.BackupFiles
 import com.despesas.gestor.util.Money
 import com.despesas.gestor.util.notifications.BillReminderScheduler
 import kotlinx.coroutines.Dispatchers
@@ -175,7 +178,8 @@ fun SettingsScreen(
             Text("Cópia de segurança", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Os dados ficam só no telemóvel. Exporta um ficheiro para não os perderes.",
+                "Os dados ficam só no telemóvel. Exporta um ficheiro para não os " +
+                    "perderes, ou partilha-o com o teu par para ficarem com os mesmos dados.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -198,6 +202,38 @@ fun SettingsScreen(
                     Text("Importar")
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        runCatching {
+                            val json = viewModel.exportJson()
+                            val uri = withContext(Dispatchers.IO) {
+                                BackupFiles.writeShareableBackup(context, json)
+                            }
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/json"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(
+                                Intent.createChooser(send, "Partilhar backup")
+                            )
+                        }.onFailure { message = "Falha ao partilhar: ${it.message}" }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Outlined.Share, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text("Partilhar backup (WhatsApp, email…)")
+            }
+            Text(
+                "Partilha por ficheiro: o outro telemóvel recebe e faz \"Importar\". " +
+                    "É uma cópia do momento — não sincroniza automaticamente.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(Modifier.height(24.dp))
             // --- Segurança e avisos ---
