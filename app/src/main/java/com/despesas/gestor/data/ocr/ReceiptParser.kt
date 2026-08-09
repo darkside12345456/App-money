@@ -263,23 +263,48 @@ object ReceiptParser {
 
     // --- Categoria -------------------------------------------------------------
 
+    /**
+     * Pontua todas as categorias e escolhe a mais provável. Uma correspondência
+     * no nome do comerciante (primeiras linhas) pesa muito mais do que uma no
+     * corpo da fatura — assim comprar "água" no Continente não vira "Contas".
+     * Em empate, vence a palavra-chave mais específica (mais longa).
+     */
     private fun classify(rawText: String, merchant: String): ExpenseCategory {
-        val haystack = (merchant + "\n" + rawText).lowercase()
+        val full = (merchant + "\n" + rawText).lowercase()
+        val merch = merchant.lowercase()
+
+        var best = ExpenseCategory.OUTROS
+        var bestScore = 0
+        var bestSpecificity = 0
+
         for (category in ExpenseCategory.entries) {
             if (category == ExpenseCategory.OUTROS) continue
-            if (category.keywords.any { keyword -> matchesKeyword(haystack, keyword) }) {
-                return category
+            val matched = category.keywords.filter { matchesKeyword(full, it) }
+            if (matched.isEmpty()) continue
+
+            val inMerchant = category.keywords.count { matchesKeyword(merch, it) }
+            val score = matched.size + 3 * inMerchant
+            val specificity = matched.maxOf { it.length }
+
+            if (score > bestScore || (score == bestScore && specificity > bestSpecificity)) {
+                best = category
+                bestScore = score
+                bestSpecificity = specificity
             }
         }
-        return ExpenseCategory.OUTROS
+        return best
     }
 
-    /** Palavras curtas exigem fronteiras de palavra para evitar falsos positivos. */
+    /**
+     * Expressões com espaços procuram-se como subcadeia; palavras isoladas
+     * exigem fronteiras de palavra (ex.: "gás" não combina em "gasóleo", nem
+     * "renda" em "prenda").
+     */
     private fun matchesKeyword(haystack: String, keyword: String): Boolean {
-        return if (keyword.length <= 4) {
-            Regex("""(?<![\p{L}])${Regex.escape(keyword)}(?![\p{L}])""").containsMatchIn(haystack)
-        } else {
+        return if (keyword.contains(' ')) {
             haystack.contains(keyword)
+        } else {
+            Regex("""(?<![\p{L}])${Regex.escape(keyword)}(?![\p{L}])""").containsMatchIn(haystack)
         }
     }
 

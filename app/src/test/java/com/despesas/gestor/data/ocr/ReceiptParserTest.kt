@@ -55,7 +55,7 @@ class ReceiptParserTest {
     @Test
     fun parse_classifiesFuelAsTransport() {
         val lines = listOf(
-            line("GALP Energia", y = 0),
+            line("Galp", y = 0),
             line("Gasoleo Simples", y = 100, x = 0),
             line("65,00", y = 100, x = 400),
             line("TOTAL", y = 160, x = 0),
@@ -64,6 +64,28 @@ class ReceiptParserTest {
         val result = ReceiptParser.parse(lines)
         assertEquals(ExpenseCategory.TRANSPORTES, result.category)
         assertEquals(65.00, result.total, 0.001)
+    }
+
+    private fun categoryOf(merchant: String, vararg items: String): ExpenseCategory {
+        val lines = mutableListOf(line(merchant, y = 0))
+        items.forEachIndexed { i, it -> lines.add(line(it, y = 100 + i * 30)) }
+        return ReceiptParser.parse(lines).category
+    }
+
+    @Test
+    fun classify_handlesManyReceiptTypes() {
+        assertEquals(ExpenseCategory.SAUDE, categoryOf("Farmácia Central", "Ben-u-ron 1,99"))
+        assertEquals(ExpenseCategory.VESTUARIO, categoryOf("ZARA", "Camisa 19,95"))
+        assertEquals(ExpenseCategory.CASA, categoryOf("Worten", "Torradeira 24,99"))
+        assertEquals(ExpenseCategory.LAZER, categoryOf("Netflix", "Subscricao 13,49"))
+        assertEquals(ExpenseCategory.CONTAS, categoryOf("EDP Comercial", "Eletricidade 42,10"))
+        assertEquals(ExpenseCategory.CONTAS, categoryOf("MEO", "Fibra e TV 39,99"))
+        assertEquals(ExpenseCategory.TRANSPORTES, categoryOf("Via Verde", "Portagem 2,45"))
+        // Comprar água no supermercado não deve virar "Contas".
+        assertEquals(
+            ExpenseCategory.SUPERMERCADO,
+            categoryOf("Continente", "Agua 1,5L 0,45", "Agua com gas 0,59")
+        )
     }
 
     @Test
