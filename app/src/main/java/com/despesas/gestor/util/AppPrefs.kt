@@ -22,6 +22,24 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_BILL_NOTIF, false)
         set(value) = prefs.edit().putBoolean(KEY_BILL_NOTIF, value).apply()
 
+    var cloudSyncEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLOUD_SYNC, false)
+        set(value) = prefs.edit().putBoolean(KEY_CLOUD_SYNC, value).apply()
+
+    var householdCode: String?
+        get() = prefs.getString(KEY_HOUSEHOLD, null)
+        set(value) = prefs.edit().putString(KEY_HOUSEHOLD, value).apply()
+
+    /** Identificador estável deste telemóvel (para ignorar as próprias escritas). */
+    val deviceId: String
+        get() {
+            val existing = prefs.getString(KEY_DEVICE_ID, null)
+            if (existing != null) return existing
+            val generated = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_DEVICE_ID, generated).apply()
+            return generated
+        }
+
     /** Emite o valor de uma chave booleana e reage a alterações. */
     fun observeBoolean(key: String, default: Boolean): Flow<Boolean> = callbackFlow {
         trySend(prefs.getBoolean(key, default))
@@ -35,5 +53,8 @@ class AppPrefs(context: Context) {
     companion object {
         const val KEY_APP_LOCK = "app_lock_enabled"
         const val KEY_BILL_NOTIF = "bill_notifications_enabled"
+        const val KEY_CLOUD_SYNC = "cloud_sync_enabled"
+        const val KEY_HOUSEHOLD = "household_code"
+        const val KEY_DEVICE_ID = "device_id"
     }
 }

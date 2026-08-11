@@ -4,6 +4,7 @@ import android.app.Application
 import com.despesas.gestor.data.local.AppDatabase
 import com.despesas.gestor.data.ocr.OcrService
 import com.despesas.gestor.data.repository.GestorRepository
+import com.despesas.gestor.data.sync.CoupleSyncManager
 import com.despesas.gestor.util.AppPrefs
 
 /**
@@ -18,6 +19,8 @@ class GestorApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Retoma a sincronização de casal se estava ligada.
+        runCatching { container.coupleSync.bootstrap() }
     }
 }
 
@@ -26,4 +29,5 @@ class AppContainer(app: GestorApp) {
     private val ocrService = OcrService(app)
     val repository = GestorRepository(app, database, ocrService)
     val prefs = AppPrefs(app)
+    val coupleSync = CoupleSyncManager(app, repository, prefs)
 }

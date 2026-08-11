@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.despesas.gestor.data.local.entity.BudgetEntity
 import com.despesas.gestor.data.repository.GestorRepository
+import com.despesas.gestor.data.sync.CoupleSyncManager
+import com.despesas.gestor.data.sync.SyncStatus
 import com.despesas.gestor.util.AppPrefs
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -12,8 +14,18 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val repo: GestorRepository,
-    private val prefs: AppPrefs
+    private val prefs: AppPrefs,
+    private val coupleSync: CoupleSyncManager
 ) : ViewModel() {
+
+    val syncStatus: StateFlow<SyncStatus> = coupleSync.status
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SyncStatus.Off)
+
+    val householdCode: String? get() = prefs.householdCode
+    val cloudSyncEnabled: Boolean get() = prefs.cloudSyncEnabled
+
+    fun enableSync(code: String) = coupleSync.enable(code)
+    fun disableSync() = coupleSync.disable()
 
     val budgets: StateFlow<List<BudgetEntity>> =
         repo.observeBudgets()

@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Share
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.despesas.gestor.data.sync.SyncStatus
 import com.despesas.gestor.domain.model.ExpenseCategory
 import com.despesas.gestor.ui.components.AppCard
 import com.despesas.gestor.ui.components.CategoryAvatar
@@ -62,7 +64,9 @@ import kotlinx.coroutines.withContext
 fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: SettingsViewModel = viewModel(
-        factory = containerViewModelFactory { SettingsViewModel(it.repository, it.prefs) }
+        factory = containerViewModelFactory {
+            SettingsViewModel(it.repository, it.prefs, it.coupleSync)
+        }
     )
 ) {
     val context = LocalContext.current
@@ -70,9 +74,11 @@ fun SettingsScreen(
     val budgets by viewModel.budgets.collectAsStateWithLifecycle()
     val appLock by viewModel.appLockEnabled.collectAsStateWithLifecycle()
     val notifications by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
 
     var message by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<ExpenseCategory?>(null) }
+    var showSyncDialog by remember { mutableStateOf(false) }
 
     // Ativa as notificações após conceder (ou dispensar) a permissão.
     val notifPermission = rememberLauncherForActivityResult(
@@ -263,8 +269,91 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
+            // --- Partilha de casal (nuvem) ---
+            Text("Partilha de casal (nuvem)", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Sincroniza os dados entre dois telemóveis em tempo real, usando um " +
+                    "\"código de casal\" partilhado. Atenção: ao ligar, os dados passam a " +
+                    "ser guardados na nuvem (Firebase), deixando de ficar só no telemóvel.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            AppCard {
+                Column {
+                    val enabled = viewModel.cloudSyncEnabled
+                    val statusText = when (val s = syncStatus) {
+                        is SyncStatus.Off -> "Desligada"
+                        is SyncStatus.Connecting -> "A ligar…"
+                        is SyncStatus.Connected -> "Ligada · código ${s.code}"
+                        is SyncStatus.Error -> "Erro: ${s.message}"
+                    }
+                    Text("Estado: $statusText", style = MaterialTheme.typography.bodyLarge)
+                    if (enabled && viewModel.householdCode != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Código de casal: ${viewModel.householdCode}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "Mete o mesmo código no outro telemóvel para partilharem os dados.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    if (enabled) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            viewModel.householdCode?.let { code ->
+                                OutlinedButton(
+                                    onClick = {
+                                        val send = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(
+                                                Intent.EXTRA_TEXT,
+                                                "Código de casal da app Despesas: $code"
+                                            )
+                                        }
+                                        context.startActivity(
+                                            Intent.createChooser(send, "Partilhar código")
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Enviar código") }
+                            }
+                            Button(
+                                onClick = { viewModel.disableSync() },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Desligar") }
+                        }
+                    } else {
+                        Button(
+                            onClick = { showSyncDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Outlined.CloudSync, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Ligar partilha de casal")
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    if (showSyncDialog) {
+        CoupleCodeDialog(
+            onDismiss = { showSyncDialog = false },
+            onConfirm = { code ->
+                viewModel.enableSync(code)
+                showSyncDialog = false
+            }
+        )
     }
 
     val cat = editing
@@ -342,4 +431,57 @@ private fun BudgetDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
+}
+
+@Composable
+private fun CoupleCodeDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Partilha de casal") },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                Text(
+                    "Num telemóvel, cria um código novo. No outro, escreve exatamente " +
+                        "o mesmo código. Os dois passam a partilhar os mesmos dados.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.trim() },
+                    label = { Text("Código de casal") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { code = generateCoupleCode() }) {
+                    Text("Gerar código novo")
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Aviso: ao ligar, os dados passam a ser guardados na nuvem (Firebase).",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (code.length >= 6) onConfirm(code) },
+                enabled = code.length >= 6
+            ) { Text("Ligar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
+}
+
+/** Gera um código de casal aleatório e legível (ex.: "casa-7K3P9Q"). */
+private fun generateCoupleCode(): String {
+    val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    val suffix = (1..6).map { chars.random() }.joinToString("")
+    return "casa-$suffix"
 }

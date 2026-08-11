@@ -78,6 +78,12 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.biometric)
 
+    // Firebase (sincronização opcional de casal). Inicializado por código,
+    // sem o plugin google-services, para a build funcionar sem o ficheiro.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

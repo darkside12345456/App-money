@@ -26,8 +26,11 @@ import com.despesas.gestor.data.ocr.OcrService
 import com.despesas.gestor.data.ocr.ParsedReceipt
 import com.despesas.gestor.util.Dates
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.YearMonth
 
@@ -45,6 +48,12 @@ class GestorRepository(
     private val fixedDao = db.fixedExpenseDao()
     private val shoppingDao = db.shoppingDao()
     private val budgetDao = db.budgetDao()
+
+    // Emite sempre que o utilizador altera dados (não em importações remotas),
+    // para a sincronização de casal saber quando enviar para a nuvem.
+    private val _dataChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val dataChanged: SharedFlow<Unit> = _dataChanged.asSharedFlow()
+    private fun notifyChanged() { _dataChanged.tryEmit(Unit) }
 
     // --- Mês selecionado (partilhado entre ecrãs) ------------------------------
     private val _selectedMonth = MutableStateFlow(Dates.currentMonthKey())
@@ -65,8 +74,10 @@ class GestorRepository(
     fun observeEffectiveIncome(monthKey: String): Flow<IncomeEntity?> =
         incomeDao.observeEffective(monthKey)
 
-    suspend fun setIncome(monthKey: String, amount: Double) =
+    suspend fun setIncome(monthKey: String, amount: Double) {
         incomeDao.upsert(IncomeEntity(monthKey, amount))
+        notifyChanged()
+    }
 
     // --- Faturas / OCR ---------------------------------------------------------
 
@@ -95,11 +106,20 @@ class GestorRepository(
             imagePath = imagePath,
             rawText = rawText
         )
-        return receiptDao.insertReceiptWithItems(receipt, items)
+        val id = receiptDao.insertReceiptWithItems(receipt, items)
+        notifyChanged()
+        return id
     }
 
-    suspend fun updateReceipt(receipt: ReceiptEntity) = receiptDao.updateReceipt(receipt)
-    suspend fun deleteReceipt(receipt: ReceiptEntity) = receiptDao.deleteReceipt(receipt)
+    suspend fun updateReceipt(receipt: ReceiptEntity) {
+        receiptDao.updateReceipt(receipt)
+        notifyChanged()
+    }
+
+    suspend fun deleteReceipt(receipt: ReceiptEntity) {
+        receiptDao.deleteReceipt(receipt)
+        notifyChanged()
+    }
 
     suspend fun getReceiptWithItems(id: Long): ReceiptWithItems? =
         receiptDao.getReceiptWithItems(id)
@@ -111,6 +131,7 @@ class GestorRepository(
     ) {
         val fixed = receipt.copy(monthKey = Dates.monthKey(receipt.dateMillis))
         receiptDao.updateReceiptWithItems(fixed, items)
+        notifyChanged()
     }
 
     fun observeCategoryTotals(monthKey: String): Flow<List<CategoryTotal>> =
@@ -144,20 +165,30 @@ class GestorRepository(
         dateMillis: Long,
         paid: Boolean,
         recurring: Boolean
-    ) = fixedDao.insert(
-        FixedExpenseEntity(
-            name = name,
-            provider = provider,
-            amount = amount,
-            dateMillis = dateMillis,
-            monthKey = Dates.monthKey(dateMillis),
-            paid = paid,
-            recurring = recurring
+    ) {
+        fixedDao.insert(
+            FixedExpenseEntity(
+                name = name,
+                provider = provider,
+                amount = amount,
+                dateMillis = dateMillis,
+                monthKey = Dates.monthKey(dateMillis),
+                paid = paid,
+                recurring = recurring
+            )
         )
-    )
+        notifyChanged()
+    }
 
-    suspend fun updateFixedExpense(expense: FixedExpenseEntity) = fixedDao.update(expense)
-    suspend fun deleteFixedExpense(expense: FixedExpenseEntity) = fixedDao.delete(expense)
+    suspend fun updateFixedExpense(expense: FixedExpenseEntity) {
+        fixedDao.update(expense)
+        notifyChanged()
+    }
+
+    suspend fun deleteFixedExpense(expense: FixedExpenseEntity) {
+        fixedDao.delete(expense)
+        notifyChanged()
+    }
 
     /**
      * Copia as contas marcadas como recorrentes do mês anterior mais recente
@@ -176,6 +207,7 @@ class GestorRepository(
             )
         }
         fixedDao.insertAll(newOnes)
+        notifyChanged()
         return newOnes.size
     }
 
@@ -184,6 +216,7 @@ class GestorRepository(
     suspend fun setBudget(categoryId: String, amount: Double) {
         if (amount <= 0.0) budgetDao.delete(categoryId)
         else budgetDao.upsert(BudgetEntity(categoryId, amount))
+        notifyChanged()
     }
 
     // --- Cópia de segurança ----------------------------------------------------
@@ -247,11 +280,27 @@ class GestorRepository(
     fun observeItemCount(listId: Long): Flow<Int> = shoppingDao.observeItemCount(listId)
     fun observeCheckedCount(listId: Long): Flow<Int> = shoppingDao.observeCheckedCount(listId)
 
-    suspend fun createShoppingList(name: String): Long =
-        shoppingDao.insertList(ShoppingListEntity(name = name, createdAtMillis = System.currentTimeMillis()))
-    suspend fun deleteShoppingList(list: ShoppingListEntity) = shoppingDao.deleteList(list)
-    suspend fun addShoppingItem(listId: Long, name: String) =
+    suspend fun createShoppingList(name: String): Long {
+        val id = shoppingDao.insertList(
+            ShoppingListEntity(name = name, createdAtMillis = System.currentTimeMillis())
+        )
+        notifyChanged()
+        return id
+    }
+    suspend fun deleteShoppingList(list: ShoppingListEntity) {
+        shoppingDao.deleteList(list)
+        notifyChanged()
+    }
+    suspend fun addShoppingItem(listId: Long, name: String) {
         shoppingDao.insertItem(ShoppingItemEntity(listId = listId, name = name))
-    suspend fun updateShoppingItem(item: ShoppingItemEntity) = shoppingDao.updateItem(item)
-    suspend fun deleteShoppingItem(item: ShoppingItemEntity) = shoppingDao.deleteItem(item)
+        notifyChanged()
+    }
+    suspend fun updateShoppingItem(item: ShoppingItemEntity) {
+        shoppingDao.updateItem(item)
+        notifyChanged()
+    }
+    suspend fun deleteShoppingItem(item: ShoppingItemEntity) {
+        shoppingDao.deleteItem(item)
+        notifyChanged()
+    }
 }
