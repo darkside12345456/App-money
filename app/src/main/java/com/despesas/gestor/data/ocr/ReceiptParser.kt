@@ -55,6 +55,12 @@ object ReceiptParser {
     // "Ruído" no fim da descrição: preço unitário e taxa de IVA, ex.: "8.47 13%".
     private val TRAILING_NOISE = Regex("""[\s]*(?:\d+(?:[.,]\d+)?\s*%|\d{1,3}[.,]\d{2})$""")
 
+    // Marcador de taxa de IVA no início da linha (talões Pingo Doce): "(A) ", "(B) "…
+    private val TAX_PREFIX = Regex("""^\([A-Da-d]\)\s*""")
+
+    // Marcador de taxa em qualquer posição, para excluir do nome do comerciante.
+    private val TAX_MARKER = Regex("""\([A-Da-d]\)""")
+
     private val DATE_PATTERNS = listOf(
         Regex("""(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})""") to "dmy4",
         Regex("""(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\b""") to "dmy2",
@@ -148,9 +154,13 @@ object ReceiptParser {
             letters >= 3 &&
                 !PRICE.containsMatchIn(row) &&
                 !isNonItem(lower) &&
-                !lower.contains("contribuinte")
+                !lower.contains("contribuinte") &&
+                !TAX_MARKER.containsMatchIn(row) &&  // linha de produto, não o comerciante
+                !row.trim().endsWith(":")             // cabeçalho de secção
         }
-        return candidates.maxByOrNull { it.count { c -> c.isLetter() } }
+        // Prefere a primeira linha válida (topo do talão = nome da loja), não a
+        // mais comprida (que costuma ser um item).
+        return candidates.firstOrNull()
             ?.trim()
             ?.take(60)
             ?: "Fatura"
@@ -222,6 +232,9 @@ object ReceiptParser {
             val beforePrice = row.substring(0, match.range.first).trimEnd()
             if (beforePrice.endsWith("-")) continue
 
+            // Cabeçalho de secção (ex.: "Charcutaria/Queijos: 0,74"): não é item.
+            if (beforePrice.endsWith(":")) continue
+
             var description = beforePrice.trim().trim('-', '*', ':', '.', ' ')
 
             // Remove o "ruído" no fim: preço unitário + taxa de IVA
@@ -231,6 +244,9 @@ object ReceiptParser {
                 previous = description
                 description = TRAILING_NOISE.replace(description, "").trim()
             } while (description != previous)
+
+            // Remove o marcador de taxa de IVA no início (ex.: "(A) ARROZ" -> "ARROZ").
+            description = TAX_PREFIX.replace(description, "").trim()
 
             // Quantidade: "2 x 0,99" ou número no início da linha ("1 Batata").
             var quantity = 1.0

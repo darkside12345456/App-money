@@ -182,6 +182,29 @@ class ReceiptParserTest {
     }
 
     @Test
+    fun parse_skipsSectionHeadersAndStripsVatPrefix() {
+        // Estilo Pingo Doce: cabeçalhos de secção terminados em ":" e itens
+        // prefixados com a taxa de IVA "(A)"/"(B)"/"(C)".
+        val lines = listOf(
+            line("Pingo Doce", y = 0),
+            line("Charcutaria/Queijos: 0,74", y = 100),
+            line("(A) ARROZ BASMATI 1KG 2,98", y = 130),
+            line("(B) LEITE UHT 1L 1,12", y = 160),
+            line("TOTAL A PAGAR 42,33", y = 220)
+        )
+        val result = ReceiptParser.parse(lines)
+
+        assertEquals(ExpenseCategory.SUPERMERCADO, result.category)
+        assertEquals(42.33, result.total, 0.001)
+        // O cabeçalho "Charcutaria/Queijos:" não é item; ficam 2 itens.
+        assertEquals(2, result.items.size)
+        assertEquals("ARROZ BASMATI 1KG", result.items[0].name)
+        assertEquals("LEITE UHT 1L", result.items[1].name)
+        // O comerciante é a loja, não uma linha de produto.
+        assertEquals("Pingo Doce", result.merchant)
+    }
+
+    @Test
     fun parse_fallsBackToItemsSumWhenNoTotal() {
         val lines = listOf(
             line("Cafe Central", y = 0),
