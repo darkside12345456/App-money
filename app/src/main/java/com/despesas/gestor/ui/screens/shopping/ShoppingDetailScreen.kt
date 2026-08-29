@@ -1,5 +1,9 @@
 package com.despesas.gestor.ui.screens.shopping
 
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Checkbox
@@ -33,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,6 +59,34 @@ fun ShoppingDetailScreen(
     val list by viewModel.list.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     var newItem by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    // Ditado por voz: usa o reconhecimento de voz do próprio Android. Cada frase
+    // reconhecida é adicionada à lista (separando por vírgulas vários itens).
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            .orEmpty()
+        spoken.split(",", ";", " e ", "\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .forEach { viewModel.addItem(it) }
+    }
+
+    fun startDictation() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-PT")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Diz os artigos (ex.: leite, pão, ovos)")
+        }
+        runCatching { voiceLauncher.launch(intent) }
+    }
 
     Scaffold(
         topBar = {
@@ -79,7 +113,10 @@ fun ShoppingDetailScreen(
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = { startDictation() }) {
+                    Icon(Icons.Filled.Mic, contentDescription = "Ditar por voz")
+                }
                 IconButton(
                     onClick = {
                         viewModel.addItem(newItem)

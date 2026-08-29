@@ -74,13 +74,29 @@ class ReceiptParserTest {
 
     @Test
     fun classify_handlesManyReceiptTypes() {
-        assertEquals(ExpenseCategory.SAUDE, categoryOf("Farmácia Central", "Ben-u-ron 1,99"))
+        // Supermercados
+        assertEquals(ExpenseCategory.SUPERMERCADO, categoryOf("Continente Modelo", "Leite 0,79"))
+        assertEquals(ExpenseCategory.SUPERMERCADO, categoryOf("Pingo Doce", "Pao 0,45"))
+        assertEquals(ExpenseCategory.SUPERMERCADO, categoryOf("Lidl", "Iogurtes 1,29"))
+        assertEquals(ExpenseCategory.SUPERMERCADO, categoryOf("Auchan", "Fruta 2,10"))
+        // Vestuário
         assertEquals(ExpenseCategory.VESTUARIO, categoryOf("ZARA", "Camisa 19,95"))
+        assertEquals(ExpenseCategory.VESTUARIO, categoryOf("Bershka", "Calcas 25,99"))
+        assertEquals(ExpenseCategory.VESTUARIO, categoryOf("Primark", "T-shirt 5,00"))
+        // Saúde
+        assertEquals(ExpenseCategory.SAUDE, categoryOf("Farmácia Central", "Ben-u-ron 1,99"))
+        // Casa / eletrónica
         assertEquals(ExpenseCategory.CASA, categoryOf("Worten", "Torradeira 24,99"))
+        assertEquals(ExpenseCategory.CASA, categoryOf("IKEA", "Estante 49,99"))
+        // Lazer / subscrições
         assertEquals(ExpenseCategory.LAZER, categoryOf("Netflix", "Subscricao 13,49"))
+        // Contas
         assertEquals(ExpenseCategory.CONTAS, categoryOf("EDP Comercial", "Eletricidade 42,10"))
         assertEquals(ExpenseCategory.CONTAS, categoryOf("MEO", "Fibra e TV 39,99"))
+        // Transportes
         assertEquals(ExpenseCategory.TRANSPORTES, categoryOf("Via Verde", "Portagem 2,45"))
+        // Restauração
+        assertEquals(ExpenseCategory.RESTAURACAO, categoryOf("McDonald's", "Menu 6,50"))
         // Comprar água no supermercado não deve virar "Contas".
         assertEquals(
             ExpenseCategory.SUPERMERCADO,

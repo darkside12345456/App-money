@@ -11,6 +11,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Permite encontrar a app de reconhecimento de voz (ditado na lista). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <!-- Ensures ML Kit OCR model is downloaded at install time -->
     <application
         android:name=".GestorApp"
