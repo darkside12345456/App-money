@@ -2,6 +2,7 @@ package com.despesas.gestor
 
 import android.app.Application
 import com.despesas.gestor.data.local.AppDatabase
+import com.despesas.gestor.data.ai.GeminiReceiptReader
 import com.despesas.gestor.data.ocr.OcrService
 import com.despesas.gestor.data.repository.GestorRepository
 import com.despesas.gestor.data.sync.CoupleSyncManager
@@ -27,7 +28,8 @@ class GestorApp : Application() {
 class AppContainer(app: GestorApp) {
     private val database = AppDatabase.get(app)
     private val ocrService = OcrService(app)
-    val repository = GestorRepository(app, database, ocrService)
     val prefs = AppPrefs(app)
+    private val aiReader = GeminiReceiptReader(app, prefs)
+    val repository = GestorRepository(app, database, ocrService, aiReader)
     val coupleSync = CoupleSyncManager(app, repository, prefs)
 }

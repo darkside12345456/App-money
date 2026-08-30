@@ -41,7 +41,8 @@ import java.time.YearMonth
 class GestorRepository(
     private val context: Context,
     private val db: AppDatabase,
-    private val ocr: OcrService
+    private val ocr: OcrService,
+    private val aiReader: com.despesas.gestor.data.ai.GeminiReceiptReader? = null
 ) {
     private val incomeDao = db.incomeDao()
     private val receiptDao = db.receiptDao()
@@ -81,8 +82,13 @@ class GestorRepository(
 
     // --- Faturas / OCR ---------------------------------------------------------
 
-    /** Corre o OCR sobre a foto e devolve a fatura já estruturada (sem gravar). */
+    /**
+     * Lê a foto e devolve a fatura já estruturada (sem gravar).
+     * Se a leitura por IA estiver ligada e funcionar, usa-a; caso contrário,
+     * recorre à leitura local no dispositivo (ML Kit).
+     */
     suspend fun scanReceipt(uri: Uri): ParsedReceipt {
+        aiReader?.read(uri)?.let { return it }
         val lines = ocr.recognize(uri)
         return com.despesas.gestor.data.ocr.ReceiptParser.parse(lines)
     }

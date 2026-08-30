@@ -75,10 +75,12 @@ fun SettingsScreen(
     val appLock by viewModel.appLockEnabled.collectAsStateWithLifecycle()
     val notifications by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val aiEnabled by viewModel.aiReceiptEnabled.collectAsStateWithLifecycle()
 
     var message by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<ExpenseCategory?>(null) }
     var showSyncDialog by remember { mutableStateOf(false) }
+    var apiKeyText by remember { mutableStateOf(viewModel.geminiApiKey ?: "") }
 
     // Ativa as notificações após conceder (ou dispensar) a permissão.
     val notifPermission = rememberLauncherForActivityResult(
@@ -175,6 +177,48 @@ fun SettingsScreen(
                             TextButton(onClick = { editing = cat }) { Text("Definir") }
                         }
                         if (index < cats.lastIndex) HorizontalDivider()
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            // --- Leitura de faturas com IA ---
+            Text("Leitura de faturas com IA", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Usa a IA (Google Gemini) só para ler a fatura da foto com muito mais " +
+                    "rigor (itens, total e categoria). Ao ligar, a foto é enviada para a " +
+                    "nuvem da Google. Precisa de uma chave gratuita do Google AI Studio.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            AppCard {
+                Column {
+                    SettingSwitch(
+                        title = "Ler faturas com IA (Gemini)",
+                        subtitle = "Se falhar ou estiver sem chave, usa a leitura local.",
+                        checked = aiEnabled,
+                        onCheckedChange = { viewModel.setAiReceiptEnabled(it) }
+                    )
+                    if (aiEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = apiKeyText,
+                            onValueChange = {
+                                apiKeyText = it
+                                viewModel.setGeminiApiKey(it)
+                            },
+                            label = { Text("Chave da API Gemini") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Obtém a chave gratuita em aistudio.google.com/apikey e cola-a aqui.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

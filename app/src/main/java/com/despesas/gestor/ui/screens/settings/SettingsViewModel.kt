@@ -39,6 +39,15 @@ class SettingsViewModel(
         prefs.observeBoolean(AppPrefs.KEY_BILL_NOTIF, false)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), prefs.billNotificationsEnabled)
 
+    val aiReceiptEnabled: StateFlow<Boolean> =
+        prefs.observeBoolean(AppPrefs.KEY_AI_RECEIPT, false)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), prefs.aiReceiptEnabled)
+
+    val geminiApiKey: String? get() = prefs.geminiApiKey
+
+    fun setAiReceiptEnabled(enabled: Boolean) { prefs.aiReceiptEnabled = enabled }
+    fun setGeminiApiKey(key: String) { prefs.geminiApiKey = key.trim().ifBlank { null } }
+
     fun setBudget(categoryId: String, amount: Double) {
         viewModelScope.launch { repo.setBudget(categoryId, amount) }
     }

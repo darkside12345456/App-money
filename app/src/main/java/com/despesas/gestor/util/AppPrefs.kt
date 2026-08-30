@@ -30,6 +30,15 @@ class AppPrefs(context: Context) {
         get() = prefs.getString(KEY_HOUSEHOLD, null)
         set(value) = prefs.edit().putString(KEY_HOUSEHOLD, value).apply()
 
+    /** Leitura de faturas com IA (Gemini). Usada só para ler a fatura. */
+    var aiReceiptEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AI_RECEIPT, false)
+        set(value) = prefs.edit().putBoolean(KEY_AI_RECEIPT, value).apply()
+
+    var geminiApiKey: String?
+        get() = prefs.getString(KEY_GEMINI_KEY, null)
+        set(value) = prefs.edit().putString(KEY_GEMINI_KEY, value).apply()
+
     /** Identificador estável deste telemóvel (para ignorar as próprias escritas). */
     val deviceId: String
         get() {
@@ -56,5 +65,7 @@ class AppPrefs(context: Context) {
         const val KEY_CLOUD_SYNC = "cloud_sync_enabled"
         const val KEY_HOUSEHOLD = "household_code"
         const val KEY_DEVICE_ID = "device_id"
+        const val KEY_AI_RECEIPT = "ai_receipt_enabled"
+        const val KEY_GEMINI_KEY = "gemini_api_key"
     }
 }
